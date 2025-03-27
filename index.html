@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高达模型取件表管理系统</title>
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 自定义样式 -->
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .hover-scale {
+            transition: transform 0.2s;
+        }
+        
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+        
+        .blur-circle {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gundam: {
+                            red: '#FF0000',
+                            blue: '#0000FF',
+                            yellow: '#FFFF00',
+                            white: '#FFFFFF',
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 检查系统主题并应用
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen transition-colors duration-300">
+    <!-- 导航栏 -->
+    <nav class="bg-white dark:bg-gray-800 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-gray-800 dark:text-white">高达模型取件表</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:block"></i>
+                    </button>
+                    <button id="add-gundam-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition hover-scale">
+                        <i class="fas fa-plus mr-2"></i>添加高达
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 搜索栏 -->
+        <div class="mb-8">
+            <div class="relative">
+                <input type="text" id="search-input" placeholder="搜索高达型号..." 
+                       class="w-full p-3 pl-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            </div>
+        </div>
+
+        <!-- 高达列表 -->
+        <div id="gundam-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- 高达卡片将通过JavaScript动态生成 -->
+        </div>
+
+        <!-- 无数据提示 -->
+        <div id="no-data" class="hidden text-center py-12">
+            <i class="fas fa-robot text-6xl mb-4 text-gray-400"></i>
+            <p class="text-xl text-gray-500 dark:text-gray-400">暂无高达数据</p>
+            <p class="text-gray-500 dark:text-gray-400 mt-2">点击"添加高达"按钮创建您的第一个高达模型取件表</p>
+        </div>
+    </main>
+
+    <!-- 添加/编辑高达模态框 -->
+    <div id="gundam-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="modal-title" class="text-xl font-bold">添加高达模型</h2>
+                    <button id="close-modal" class="blur-circle bg-gray-200 bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 rounded-full p-2 hover:bg-opacity-30 dark:hover:bg-opacity-30 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="gundam-form">
+                    <input type="hidden" id="gundam-id">
+                    
+                    <div class="mb-4">
+                        <label for="gundam-model" class="block mb-2 font-medium">高达型号</label>
+                        <input type="text" id="gundam-model" required
+                               class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="gundam-image" class="block mb-2 font-medium">封面图URL</label>
+                        <input type="url" id="gundam-image" placeholder="https://example.com/image.jpg"
+                               class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block font-medium">取件表</label>
+                            <button type="button" id="batch-import-btn" class="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md transition">
+                                <i class="fas fa-file-import mr-1"></i>批量导入
+                            </button>
+                        </div>
+                        <div id="parts-container">
+                            <!-- 部位组将通过JavaScript动态生成 -->
+                        </div>
+                        
+                        <button type="button" id="add-main-part" class="mt-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-md transition">
+                            <i class="fas fa-plus mr-2"></i>添加主部位
+                        </button>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" id="cancel-btn" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition hover-scale">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看高达详情模态框 -->
+    <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="detail-title" class="text-xl font-bold">高达详情</h2>
+                    <div class="flex space-x-2">
+                        <button id="edit-gundam" class="blur-circle bg-blue-500 bg-opacity-20 rounded-full p-2 hover:bg-opacity-30 transition">
+                            <i class="fas fa-edit text-blue-500"></i>
+                        </button>
+                        <button id="close-detail" class="blur-circle bg-gray-200 bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 rounded-full p-2 hover:bg-opacity-30 dark:hover:bg-opacity-30 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="md:w-1/3">
+                        <img id="detail-image" src="assets/img/placeholder.webp" alt="高达图片" 
+                             class="w-full h-auto object-cover rounded-lg shadow-md">
+                    </div>
+                    
+                    <div class="md:w-2/3">
+                        <div id="view-toggle-container"></div>
+                        <div id="detail-parts" class="space-y-4">
+                            <!-- 取件表详情将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量导入模态框 -->
+    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">批量导入数据</h2>
+                    <button id="close-import" class="blur-circle bg-gray-200 bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 rounded-full p-2 hover:bg-opacity-30 dark:hover:bg-opacity-30 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="import-data" class="block mb-2 font-medium">JSON数据</label>
+                    <textarea id="import-data" rows="10" placeholder='[{"model": "RX-78-2", "image": "https://example.com/rx78.jpg", "parts": [...]}]'
+                              class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800"></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-import" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                        取消
+                    </button>
+                    <button id="confirm-import" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition hover-scale">
+                        导入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <div class="mb-4 text-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-4"></i>
+                    <h2 class="text-xl font-bold">确认删除</h2>
+                    <p class="mt-2 text-gray-600 dark:text-gray-400">您确定要删除这个高达模型吗？此操作无法撤销。</p>
+                </div>
+                
+                <div class="flex justify-center space-x-4">
+                    <button id="cancel-delete" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                        取消
+                    </button>
+                    <button id="confirm-delete" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition hover-scale">
+                        删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 悬浮操作按钮 -->
+    <div class="fixed bottom-6 right-6 flex flex-col space-y-4">
+        <button id="import-btn" class="bg-green-600 hover:bg-green-700 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition hover-scale">
+            <i class="fas fa-file-import"></i>
+        </button>
+        <button id="export-btn" class="bg-purple-600 hover:bg-purple-700 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition hover-scale">
+            <i class="fas fa-file-export"></i>
+        </button>
+    </div>
+
+    <!-- 批量导入取件表模态框 -->
+    <div id="batch-import-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">批量导入取件表</h2>
+                    <button id="close-batch-import" class="blur-circle bg-gray-200 bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 rounded-full p-2 hover:bg-opacity-30 dark:hover:bg-opacity-30 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="batch-main-part" class="block mb-2 font-medium">主部位名称</label>
+                    <input type="text" id="batch-main-part" placeholder="例如：骨架、外甲、武器"
+                           class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="batch-import-text" class="block mb-2 font-medium">取件表数据（按照表格格式粘贴）</label>
+                    <textarea id="batch-import-text" rows="10" placeholder="右腿&#9;C3: 13~24&#9;D: 1~14&#9;F1: 1~9&#9;P3: 13&#9;V1: 4、(6、7)×2&#9;
+左腿&#9;C3: 13~24&#9;D: 1~14&#9;F1: 1~9&#9;P3: 13&#9;V1: 4、(6、7)×2&#9;
+..."
+                              class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 font-mono"></textarea>
+                    <p class="text-sm text-gray-500 mt-1">提示：可以直接从Excel或表格中复制粘贴，保持制表符分隔格式</p>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-batch-import" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                        取消
+                    </button>
+                    <button id="confirm-batch-import" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition hover-scale">
+                        导入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加板件查看模态框 -->
+    <div id="runner-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="runner-title" class="text-xl font-bold">板件详情</h2>
+                    <button id="close-runner" class="blur-circle bg-gray-200 bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 rounded-full p-2 hover:bg-opacity-30 dark:hover:bg-opacity-30 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="runner-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- 板件列表将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/db.js"></script>
+    <script src="assets/js/main.js"></script>
+</body>
+</html> 
