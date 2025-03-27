@@ -51,7 +51,15 @@ document.addEventListener('DOMContentLoaded', function() {
         batchImportModal: document.getElementById('batch-import-modal'),
         closeBatchImportBtn: document.getElementById('close-batch-import'),
         confirmBatchImport: document.getElementById('confirm-batch-import'),
-        cancelBatchImport: document.getElementById('cancel-batch-import')
+        cancelBatchImport: document.getElementById('cancel-batch-import'),
+        
+        // 配置相关元素
+        configModal: document.getElementById('config-modal'),
+        configForm: document.getElementById('config-form'),
+        gistId: document.getElementById('gist-id'),
+        githubToken: document.getElementById('github-token'),
+        closeConfig: document.getElementById('close-config'),
+        cancelConfig: document.getElementById('cancel-config')
     };
     
     // 当前编辑/查看的高达ID
@@ -63,8 +71,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化函数
     async function init() {
         try {
-            // 初始化数据库
-            await GundamDB.init();
+            // 检查配置
+            try {
+                await GundamDB.init();
+            } catch (error) {
+                if (error.message.includes('配置文件')) {
+                    showConfigModal();
+                    return;
+                }
+                throw error;
+            }
             
             // 加载并显示高达列表
             await renderGundamList();
@@ -72,7 +88,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // 绑定事件
             bindEvents();
             
-            // 初始化成功
             console.log('应用初始化成功');
         } catch (error) {
             console.error('应用初始化失败:', error);
@@ -135,6 +150,27 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.closeBatchImportBtn) {
             elements.closeBatchImportBtn.addEventListener('click', closeBatchImportModal);
         }
+        
+        // 配置表单提交
+        elements.configForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const gistId = elements.gistId.value.trim();
+            const token = elements.githubToken.value.trim();
+            
+            // 保存配置
+            GundamDB.saveConfig(gistId, token);
+            
+            // 关闭模态框
+            closeConfigModal();
+            
+            // 重新初始化应用
+            await init();
+        });
+        
+        // 配置模态框关闭按钮
+        elements.closeConfig.addEventListener('click', closeConfigModal);
+        elements.cancelConfig.addEventListener('click', closeConfigModal);
     }
     
     // 渲染高达列表
@@ -1004,5 +1040,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 componentInput.value = component;
             });
         });
+    }
+    
+    // 添加配置相关函数
+    function showConfigModal() {
+        // 尝试从localStorage获取已保存的配置
+        const savedConfig = localStorage.getItem('gundam_config');
+        if (savedConfig) {
+            try {
+                const config = JSON.parse(savedConfig);
+                elements.gistId.value = config.GIST_ID || '';
+                elements.githubToken.value = config.GITHUB_TOKEN || '';
+            } catch (e) {
+                console.error('解析保存的配置失败:', e);
+            }
+        }
+        
+        elements.configModal.classList.remove('hidden');
+    }
+    
+    function closeConfigModal() {
+        elements.configModal.classList.add('hidden');
     }
 });

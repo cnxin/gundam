@@ -20,7 +20,21 @@ const GundamDB = {
     
     // 检查配置是否存在
     checkConfig() {
+        // 添加延迟加载逻辑
         if (typeof CONFIG === 'undefined') {
+            // 尝试从localStorage获取配置
+            const savedConfig = localStorage.getItem('gundam_config');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    if (config.GIST_ID && config.GITHUB_TOKEN) {
+                        window.CONFIG = config;
+                        return;
+                    }
+                } catch (e) {
+                    console.error('解析保存的配置失败:', e);
+                }
+            }
             throw new Error('配置文件未加载，请确保已创建 config.js 文件');
         }
         if (!this.GIST_ID || !this.GITHUB_TOKEN) {
@@ -399,5 +413,15 @@ const GundamDB = {
             console.error('初始化失败:', error);
             return false;
         }
+    },
+    
+    // 保存配置到localStorage
+    saveConfig(gistId, token) {
+        const config = {
+            GIST_ID: gistId,
+            GITHUB_TOKEN: token
+        };
+        localStorage.setItem('gundam_config', JSON.stringify(config));
+        window.CONFIG = config;
     }
 }; 
