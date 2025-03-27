@@ -28,33 +28,44 @@ const GundamDB = {
         }
     },
     
+    // 错误处理中间件
+    async withErrorHandling(operation, fallback = null) {
+        try {
+            const result = await operation();
+            return result;
+        } catch (error) {
+            console.error('操作失败:', error);
+            // 如果是配置错误，显示特定消息
+            if (error.message.includes('配置文件')) {
+                alert('请检查配置文件是否正确设置');
+            } else {
+                alert('操作失败，请稍后重试');
+            }
+            return fallback;
+        }
+    },
+    
     // 获取所有高达模型数据
     async getAllModels() {
-        this.checkConfig();
-        // 尝试从缓存获取数据
-        const cachedData = this.getFromCache();
-        if (cachedData) {
-            return cachedData;
-        }
-        
-        try {
-            // 从GitHub Gist获取数据
-            const response = await fetch(`https://api.github.com/gists/${this.GIST_ID}`);
-            const gistData = await response.json();
+        return this.withErrorHandling(async () => {
+            this.checkConfig();
+            const cachedData = this.getFromCache();
+            if (cachedData) {
+                return cachedData;
+            }
             
-            // 解析Gist中的数据
+            const response = await fetch(`https://api.github.com/gists/${this.GIST_ID}`);
+            if (!response.ok) {
+                throw new Error(`获取数据失败: ${response.status}`);
+            }
+            
+            const gistData = await response.json();
             const fileContent = gistData.files[this.GIST_FILENAME].content;
             const models = JSON.parse(fileContent);
             
-            // 更新缓存
             this.updateCache(models);
-            
             return models;
-        } catch (error) {
-            console.error('从GitHub Gist获取数据失败:', error);
-            // 如果API请求失败，返回缓存数据或空数组
-            return cachedData || [];
-        }
+        }, []);  // 失败时返回空数组
     },
     
     // 获取单个高达模型数据
@@ -323,20 +334,70 @@ const GundamDB = {
     
     // 缓存管理
     getFromCache() {
-        const timestamp = localStorage.getItem(this.CACHE_TIMESTAMP);
-        const now = new Date().getTime();
-        
-        // 缓存有效期为5分钟
-        if (timestamp && now - parseInt(timestamp) < 300000) {
-            const data = localStorage.getItem(this.CACHE_KEY);
-            return data ? JSON.parse(data) : null;
+        try {
+            const timestamp = localStorage.getItem(this.CACHE_TIMESTAMP);
+            const now = new Date().getTime();
+            
+            // 缓存有效期为5分钟
+            if (timestamp && now - parseInt(timestamp) < 300000) {
+                const data = localStorage.getItem(this.CACHE_KEY);
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    // 验证数据格式
+                    if (Array.isArray(parsed)) {
+                        return parsed;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('读取缓存失败:', error);
+            // 清除可能损坏的缓存
+            this.clearCache();
         }
-        
         return null;
     },
     
     updateCache(models) {
-        localStorage.setItem(this.CACHE_KEY, JSON.stringify(models));
-        localStorage.setItem(this.CACHE_TIMESTAMP, new Date().getTime().toString());
+        try {
+            if (!Array.isArray(models)) {
+                throw new Error('缓存数据必须是数组');
+            }
+            localStorage.setItem(this.CACHE_KEY, JSON.stringify(models));
+            localStorage.setItem(this.CACHE_TIMESTAMP, new Date().getTime().toString());
+        } catch (error) {
+            console.error('更新缓存失败:', error);
+            // 出错时清除缓存
+            this.clearCache();
+        }
+    },
+    
+    clearCache() {
+        try {
+            localStorage.removeItem(this.CACHE_KEY);
+            localStorage.removeItem(this.CACHE_TIMESTAMP);
+        } catch (error) {
+            console.error('清除缓存失败:', error);
+        }
+    },
+    
+    // 初始化函数
+    async init() {
+        try {
+            // 检查配置
+            this.checkConfig();
+            
+            // 尝试从Gist获取初始数据
+            const models = await this.getAllModels();
+            
+            // 更新缓存
+            if (Array.isArray(models)) {
+                this.updateCache(models);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('初始化失败:', error);
+            return false;
+        }
     }
 }; 

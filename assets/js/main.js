@@ -61,12 +61,23 @@ document.addEventListener('DOMContentLoaded', function() {
     init();
     
     // 初始化函数
-    function init() {
-        // 加载并显示高达列表
-        renderGundamList();
-        
-        // 绑定事件
-        bindEvents();
+    async function init() {
+        try {
+            // 初始化数据库
+            await GundamDB.init();
+            
+            // 加载并显示高达列表
+            await renderGundamList();
+            
+            // 绑定事件
+            bindEvents();
+            
+            // 初始化成功
+            console.log('应用初始化成功');
+        } catch (error) {
+            console.error('应用初始化失败:', error);
+            alert('应用加载失败，请刷新页面重试');
+        }
     }
     
     // 绑定事件处理函数
@@ -128,25 +139,35 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 渲染高达列表
     async function renderGundamList(models) {
-        // 如果没有传入模型列表，则获取所有模型
-        const gundamModels = models || await GundamDB.getAllModels();
-        
-        // 清空列表
-        elements.gundamList.innerHTML = '';
-        
-        // 检查是否有数据
-        if (gundamModels.length === 0) {
+        try {
+            // 如果没有传入模型列表，则获取所有模型
+            const gundamModels = models || await GundamDB.getAllModels();
+            
+            // 确保gundamModels是数组
+            if (!Array.isArray(gundamModels)) {
+                throw new Error('无效的模型数据');
+            }
+            
+            // 清空列表
+            elements.gundamList.innerHTML = '';
+            
+            // 检查是否有数据
+            if (gundamModels.length === 0) {
+                elements.noData.classList.remove('hidden');
+                return;
+            }
+            
+            elements.noData.classList.add('hidden');
+            
+            // 渲染每个高达卡片
+            gundamModels.forEach(gundam => {
+                const card = createGundamCard(gundam);
+                elements.gundamList.appendChild(card);
+            });
+        } catch (error) {
+            console.error('渲染列表失败:', error);
             elements.noData.classList.remove('hidden');
-            return;
         }
-        
-        elements.noData.classList.add('hidden');
-        
-        // 渲染每个高达卡片
-        gundamModels.forEach(gundam => {
-            const card = createGundamCard(gundam);
-            elements.gundamList.appendChild(card);
-        });
     }
     
     // 创建高达卡片
